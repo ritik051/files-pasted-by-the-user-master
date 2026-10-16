@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useState } from 'react';
+import { Component, lazy, Suspense, useCallback, useState, type ErrorInfo, type ReactNode } from 'react';
 import { CodeWorkspace } from './components/CodeWorkspace';
 import { Inspector } from './components/Inspector';
 import { NarrationPanel } from './components/NarrationPanel';
@@ -9,6 +9,28 @@ import { executeSource, getLesson } from './services/api';
 import { useAppStore, useCurrentEvent, useCurrentState } from './store';
 
 const ExecutionScene = lazy(() => import('./components/ExecutionScene'));
+
+class AppErrorBoundary extends Component<{ children: ReactNode }, { error?: Error }> {
+  state: { error?: Error } = {};
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('Tracecraft render failure', error, info);
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children;
+    return <main className="app-shell dark"><section className="panel" style={{ margin: 'auto', maxWidth: 640 }}>
+      <span className="eyebrow">Tracecraft recovery</span>
+      <h1>We could not render this lesson.</h1>
+      <p className="muted">{this.state.error.message}</p>
+      <button className="primary" onClick={() => this.setState({ error: undefined })}>Return to lesson</button>
+    </section></main>;
+  }
+}
 
 export function App() {
   const language = useAppStore((state) => state.language);
@@ -39,7 +61,7 @@ export function App() {
     } catch (caught) { setError(caught instanceof Error ? caught.message : 'Unable to start execution.'); } finally { setLoading(false); }
   }, [input, language, setError, setLoading, setResult, source]);
 
-  return <main className={dark ? 'app-shell dark' : 'app-shell light'}>
+  return <AppErrorBoundary><main className={dark ? 'app-shell dark' : 'app-shell light'}>
     <header className="top-nav">
       <div className="brand"><div className="brand-mark">⌁</div><div><strong>tracecraft</strong><span>code, made visible</span></div></div>
       <div className="nav-status"><span className={`status-dot ${execution?.status === 'complete' ? 'complete' : ''}`} />{execution ? `${execution.events.length} recorded events` : 'Ready for a lesson'}</div>
@@ -57,5 +79,5 @@ export function App() {
     </div>
     <footer><span>Trace-backed lesson</span><span>•</span><span>JavaScript runs in a time-limited browser worker</span><span>•</span><span>Java & C++ adapters clearly report their current limitation</span></footer>
     {savedOpen && <SavedLessons close={() => setSavedOpen(false)} />}
-  </main>;
+  </main></AppErrorBoundary>;
 }
