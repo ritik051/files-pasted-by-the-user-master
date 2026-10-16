@@ -9,7 +9,7 @@
     "dev:api": "tsx watch server/index.ts",
     "build": "tsc -b && vite build && tsc -p server/tsconfig.json",
     "start": "NODE_ENV=production node --import tsx server/index.ts",
-    "test": "node --import tsx --test shared/reconstruct.test.ts server/instrument-javascript.test.ts server/runners.test.ts server/sandbox.test.ts server/teacher-provider.test.ts src/visualizers/registry.test.ts",
+    "test": "node --import tsx --test shared/reconstruct.test.ts server/instrument-javascript.test.ts server/runners.test.ts server/sandbox.test.ts server/teacher-provider.test.ts src/services/browser-trace.test.ts src/visualizers/registry.test.ts",
     "lint": "tsc -b --pretty false && tsc -p server/tsconfig.json --noEmit"
   },
   "dependencies": {

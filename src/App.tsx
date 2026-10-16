@@ -55,7 +55,7 @@ export function App() {
       </section>
       <aside className="right-column"><Inspector state={state} event={event} selected={selected} /><TeacherPanel /></aside>
     </div>
-    <footer><span>Trace-backed lesson</span><span>•</span><span>Source runs in an isolated, no-network container</span><span>•</span><span>Java & C++ adapters clearly report their current limitation</span></footer>
+    <footer><span>Trace-backed lesson</span><span>•</span><span>JavaScript runs in a time-limited browser worker</span><span>•</span><span>Java & C++ adapters clearly report their current limitation</span></footer>
     {savedOpen && <SavedLessons close={() => setSavedOpen(false)} />}
   </main>;
 }

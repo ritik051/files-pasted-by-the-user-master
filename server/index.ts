@@ -2,8 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ExecuteRequestSchema, QuestionRequestSchema } from '../shared/schema.js';
+import { ExecuteRequestSchema, ExecutionSchema, QuestionRequestSchema } from '../shared/schema.js';
 import { execute } from './sandbox.js';
+import { instrumentJavaScript } from './instrument-javascript.js';
 import { resolveTeacherProvider } from './teacher-provider.js';
 import { MemoryRunStore } from './types.js';
 
@@ -15,12 +16,12 @@ const teacher = resolveTeacherProvider();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 app.use(cors({ origin: ['http://localhost:5173'], methods: ['GET', 'POST'] }));
-app.use(express.json({ limit: '128kb' }));
+app.use(express.json({ limit: '1mb' }));
 
-app.get('/api/health', (_request, response) => response.json({ status: 'ok', sandbox: 'docker-required' }));
+app.get('/api/health', (_request, response) => response.json({ status: 'ok', javascript: 'browser-worker', serverSandbox: 'docker-required' }));
 
 app.get('/api/languages', (_request, response) => response.json([
-  { id: 'javascript', label: 'JavaScript', status: 'supported', note: 'Synchronous script subset with statement-level tracing.' },
+  { id: 'javascript', label: 'JavaScript', status: 'supported', note: 'Synchronous script subset with statement-level tracing in an isolated browser worker.' },
   { id: 'python', label: 'Python', status: 'supported', note: 'CPython line, call, return, and exception tracing.' },
   { id: 'java', label: 'Java', status: 'limited', note: 'JVM compilation and output tracing; debugger-backed local state is not yet available.' },
   { id: 'cpp', label: 'C++', status: 'limited', note: 'Compiler execution and output tracing; debugger-backed local state is not yet available.' },
@@ -32,6 +33,28 @@ app.post('/api/execute', async (request, response) => {
   const execution = await execute(parsed.data);
   store.save(execution);
   response.status(execution.status === 'failed' ? 422 : 201).json(execution);
+});
+
+/** Instruments JavaScript without running it. The browser worker executes the result, so a public
+ * Railway web service never evaluates visitor code in its own process. */
+app.post('/api/javascript/instrument', (request, response) => {
+  const parsed = ExecuteRequestSchema.safeParse(request.body);
+  if (!parsed.success) return response.status(400).json({ error: 'Invalid execution request.', detail: parsed.error.flatten() });
+  if (parsed.data.language !== 'javascript') return response.status(400).json({ error: 'This endpoint only instruments JavaScript.' });
+  try {
+    response.json({ source: instrumentJavaScript(parsed.data.source) });
+  } catch (cause) {
+    response.status(422).json({ error: cause instanceof Error ? cause.message : 'Unable to instrument the source.' });
+  }
+});
+
+/** Stores a trace produced in the requesting browser so the lesson and teacher endpoints can use it. */
+app.post('/api/executions', (request, response) => {
+  const parsed = ExecutionSchema.safeParse(request.body);
+  if (!parsed.success) return response.status(400).json({ error: 'Invalid browser execution.', detail: parsed.error.flatten() });
+  if (parsed.data.language !== 'javascript') return response.status(400).json({ error: 'Only browser JavaScript traces may be stored here.' });
+  store.save(parsed.data);
+  response.status(201).json(parsed.data);
 });
 
 app.get('/api/executions/:id', (request, response) => {
