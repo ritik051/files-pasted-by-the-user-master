@@ -27,7 +27,7 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { error?: Erro
       <span className="eyebrow">Tracecraft recovery</span>
       <h1>We could not render this lesson.</h1>
       <p className="muted">{this.state.error.message}</p>
-      <button className="primary" onClick={() => this.setState({ error: undefined })}>Return to lesson</button>
+      <button className="primary" onClick={() => { useAppStore.getState().resetLesson(); this.setState({ error: undefined }); }}>Start a new lesson</button>
     </section></main>;
   }
 }

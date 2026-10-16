@@ -18,14 +18,17 @@ app.set('trust proxy', 1);
 app.use(cors({ origin: ['http://localhost:5173'], methods: ['GET', 'POST'] }));
 app.use(express.json({ limit: '1mb' }));
 
-app.get('/api/health', (_request, response) => response.json({ status: 'ok', javascript: 'browser-worker', serverSandbox: 'docker-required' }));
+app.get('/api/health', (_request, response) => response.json({ status: 'ok', release: 'browser-worker-v2', javascript: 'browser-worker', serverSandbox: 'docker-required' }));
 
-app.get('/api/languages', (_request, response) => response.json([
-  { id: 'javascript', label: 'JavaScript', status: 'supported', note: 'Synchronous script subset with statement-level tracing in an isolated browser worker.' },
-  { id: 'python', label: 'Python', status: 'supported', note: 'CPython line, call, return, and exception tracing.' },
-  { id: 'java', label: 'Java', status: 'limited', note: 'JVM compilation and output tracing; debugger-backed local state is not yet available.' },
-  { id: 'cpp', label: 'C++', status: 'limited', note: 'Compiler execution and output tracing; debugger-backed local state is not yet available.' },
-]));
+app.get('/api/languages', (_request, response) => {
+  const publicDeployment = process.env.NODE_ENV === 'production';
+  response.json([
+    { id: 'javascript', label: 'JavaScript', status: 'supported', note: 'Synchronous script subset with statement-level tracing in an isolated browser worker.' },
+    { id: 'python', label: 'Python', status: publicDeployment ? 'unavailable' : 'supported', note: publicDeployment ? 'Available in the Docker-enabled local setup.' : 'CPython line, call, return, and exception tracing.' },
+    { id: 'java', label: 'Java', status: publicDeployment ? 'unavailable' : 'limited', note: publicDeployment ? 'Available in the Docker-enabled local setup.' : 'JVM compilation and output tracing; debugger-backed local state is not yet available.' },
+    { id: 'cpp', label: 'C++', status: publicDeployment ? 'unavailable' : 'limited', note: publicDeployment ? 'Available in the Docker-enabled local setup.' : 'Compiler execution and output tracing; debugger-backed local state is not yet available.' },
+  ]);
+});
 
 app.post('/api/execute', async (request, response) => {
   const parsed = ExecuteRequestSchema.safeParse(request.body);

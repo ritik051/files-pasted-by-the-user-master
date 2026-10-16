@@ -1,11 +1,33 @@
 import { Canvas, useThree } from '@react-three/fiber';
 import { Grid, OrbitControls, RoundedBox, Text } from '@react-three/drei';
-import { useEffect, useMemo, useRef } from 'react';
+import { Component, useEffect, useMemo, useRef, type ErrorInfo, type ReactNode } from 'react';
 import type { RuntimeState } from '../../shared/schema';
 import { formatValue } from '../../shared/reconstruct';
 import { planScene, type ArrayPointer } from '../visualizers/registry';
 
 type Props = { state?: RuntimeState; selected?: string; onSelect: (name?: string) => void; resetCameraKey?: number; reducedMotion?: boolean };
+
+class SceneErrorBoundary extends Component<{ children: ReactNode; state?: RuntimeState }, { error?: Error }> {
+  state: { error?: Error } = {};
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('Tracecraft 3D scene failure', error, info);
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children;
+    const scope = this.props.state?.frames.at(-1)?.locals ?? this.props.state?.globals ?? {};
+    return <div className="scene-fallback" role="status">
+      <strong>The 3D scene could not render this trace.</strong>
+      <p>The lesson, timeline, output, and inspected values are still available below and beside this panel.</p>
+      {Object.entries(scope).length > 0 && <div className="scene-fallback-state">{Object.entries(scope).slice(0, 8).map(([name, value]) => <code key={name}>{name}: {formatValue(value)}</code>)}</div>}
+    </div>;
+  }
+}
 
 function ArrayObjects({ name, values, pointers, selected, onSelect }: { name: string; values: unknown[]; pointers: ArrayPointer[]; selected?: string; onSelect: (name: string) => void }) {
   return <group position={[-Math.min(values.length, 7) * 0.78, 0.3, 0]}>
@@ -95,7 +117,7 @@ function CameraControls({ plan, selected, resetCameraKey }: { plan: ReturnType<t
   return <OrbitControls ref={controls} enablePan enableZoom minDistance={6} maxDistance={24} target={[0, 0, 0]} />;
 }
 
-export function ExecutionScene(props: Props) {
+function SceneCanvas(props: Props) {
   const plan = planScene(props.state);
   return <div className="scene-canvas" aria-label="Interactive 3D runtime scene">
     <Canvas camera={{ position: [0, 4.8, 13], fov: 47 }} dpr={[1, 1.5]} gl={{ antialias: true }} onPointerMissed={() => props.onSelect(undefined)}>
@@ -109,6 +131,10 @@ export function ExecutionScene(props: Props) {
     </Canvas>
     <div className="scene-hint"><span className="pulse-dot" /> drag to orbit · scroll to zoom · select an object</div>
   </div>;
+}
+
+export function ExecutionScene(props: Props) {
+  return <SceneErrorBoundary state={props.state}><SceneCanvas {...props} /></SceneErrorBoundary>;
 }
 
 export default ExecutionScene;

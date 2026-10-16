@@ -4,6 +4,7 @@ import type * as Monaco from 'monaco-editor';
 import { languageExample, useAppStore, useCurrentEvent } from '../store';
 
 const languageName = { javascript: 'javascript', python: 'python', java: 'java', cpp: 'cpp' } as const;
+const browserOnly = typeof window !== 'undefined' && !['localhost', '127.0.0.1'].includes(window.location.hostname);
 
 export function CodeWorkspace({ onRun }: { onRun: () => void }) {
   const language = useAppStore((state) => state.language);
@@ -34,7 +35,7 @@ export function CodeWorkspace({ onRun }: { onRun: () => void }) {
     <div className="panel-title-row">
       <div><span className="eyebrow">Source workspace</span><h2>Code and test input</h2></div>
       <div className="language-actions"><select aria-label="Programming language" value={language} onChange={(event) => { setLanguage(event.target.value as typeof language); resetLesson(); }}>
-        <option value="javascript">JavaScript</option><option value="python">Python</option><option value="java">Java · output trace</option><option value="cpp">C++ · output trace</option>
+        <option value="javascript">JavaScript</option><option value="python" disabled={browserOnly}>Python{browserOnly ? ' · local Docker only' : ''}</option><option value="java" disabled={browserOnly}>Java · output trace{browserOnly ? ' · local Docker only' : ''}</option><option value="cpp" disabled={browserOnly}>C++ · output trace{browserOnly ? ' · local Docker only' : ''}</option>
       </select><button className="example-button" onClick={() => { setSource(languageExample(language)); resetLesson(); }}>Load example</button></div>
     </div>
     <div className="editor-wrap">
@@ -43,6 +44,7 @@ export function CodeWorkspace({ onRun }: { onRun: () => void }) {
     </div>
     <label className="input-label" htmlFor="program-input">Standard input / test case</label>
     <textarea id="program-input" value={input} onChange={(event) => setInput(event.target.value)} placeholder="Optional stdin passed to the program" rows={2} />
+    {browserOnly && <p className="runtime-note">The public lesson runner supports JavaScript in a time-limited browser worker. Python, Java, and C++ need the Docker-enabled local setup.</p>}
     <div className="code-actions">
       <button className="secondary" onClick={() => { resetLesson(); }}>New lesson</button>
       <button className="primary" disabled={loading || !source.trim()} onClick={onRun}>{loading ? 'Tracing safely…' : 'Run & teach'}</button>
